@@ -24,3 +24,4 @@ rich
 questionary
 langchain_anthropic
 langchain-google-genai
+cryptography>=41.0.0
