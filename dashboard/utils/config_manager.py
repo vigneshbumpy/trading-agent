@@ -137,11 +137,17 @@ class ConfigManager:
             config['deep_think_llm'] = config['deep_think_model']
 
         # When using Ollama, use local vendors for news (openai vendor requires special API)
-        if config.get('llm_provider') == 'ollama':
-            if 'data_vendors' not in config:
-                config['data_vendors'] = {}
+        # For openrouter/anthropic, use alpha_vantage which works properly
+        provider = config.get('llm_provider', 'ollama')
+        if 'data_vendors' not in config:
+            config['data_vendors'] = {}
+
+        if provider == 'ollama':
             # Override news_data to use local (reddit) since openai vendor requires web_search
             config['data_vendors']['news_data'] = 'local'
+        else:
+            # Use alpha_vantage for news with cloud providers
+            config['data_vendors']['news_data'] = 'alpha_vantage'
 
         return config
 
