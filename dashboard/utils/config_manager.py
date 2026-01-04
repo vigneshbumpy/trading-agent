@@ -107,23 +107,27 @@ class ConfigManager:
         Returns:
             dict: Complete configuration dictionary
         """
+        # Start with DEFAULT_CONFIG as base
+        from tradingagents.default_config import DEFAULT_CONFIG
+        config = DEFAULT_CONFIG.copy()
+
+        # Refresh cache
         self._refresh_cache_if_needed()
 
-        # Build config dict
-        config = self.cache.copy()
+        # Override with database settings
+        for key, value in self.cache.items():
+            config[key] = value
 
-        # Ensure required keys exist with defaults
-        defaults = {
+        # Ensure LLM defaults for budget tier
+        llm_defaults = {
             'llm_provider': 'ollama',
             'backend_url': 'http://localhost:11434/v1',
             'quick_think_llm': 'llama3.2',
             'deep_think_llm': 'qwen2.5:32b',
-            'max_debate_rounds': 1,
-            'max_risk_discuss_rounds': 1,
         }
 
-        for key, default_value in defaults.items():
-            if key not in config:
+        for key, default_value in llm_defaults.items():
+            if key not in config or not config[key]:
                 config[key] = default_value
 
         # Map model keys (database uses quick_think_model, graph uses quick_think_llm)
