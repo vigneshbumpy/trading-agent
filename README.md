@@ -112,22 +112,47 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-### Required APIs
+### Configuration System
 
-You will need the OpenAI API for all the agents, and [Alpha Vantage API](https://www.alphavantage.co/support/#api-key) for fundamental and news data (default configuration).
+TradingAgents features a **production-ready configuration system** with three LLM tiers:
 
-```bash
-export OPENAI_API_KEY=$YOUR_OPENAI_API_KEY
-export ALPHA_VANTAGE_API_KEY=$YOUR_ALPHA_VANTAGE_API_KEY
-```
+| Tier | Provider | Models | Cost | Best For |
+|------|----------|--------|------|----------|
+| **Budget** (Default) | Ollama (Local) | llama3.2, qwen2.5:32b | FREE | Testing, development |
+| **Best Value** ⭐ | OpenRouter | DeepSeek Chat/R1 | $15-30/mo | Production use |
+| **Premium** | Anthropic | Claude Haiku/Sonnet | $50-100/mo | Best quality |
 
-Alternatively, you can create a `.env` file in the project root with your API keys (see `.env.example` for reference):
-```bash
-cp .env.example .env
-# Edit .env with your actual API keys
-```
+**Key features:**
+- 🔄 **Instant switching** - Change tiers without restart
+- 🔐 **Encrypted secrets** - API keys stored securely in database
+- 💾 **Persistent preferences** - Settings saved across sessions
 
-**Note:** We are happy to partner with Alpha Vantage to provide robust API support for TradingAgents. You can get a free AlphaVantage API [here](https://www.alphavantage.co/support/#api-key), TradingAgents-sourced requests also have increased rate limits to 60 requests per minute with no daily limits. Typically the quota is sufficient for performing complex tasks with TradingAgents thanks to Alpha Vantage’s open-source support program. If you prefer to use OpenAI for these data sources instead, you can modify the data vendor settings in `tradingagents/default_config.py`.
+#### Getting Started (Budget Tier - FREE)
+
+1. Install [Ollama](https://ollama.ai/) on your machine
+2. Pull required models:
+   ```bash
+   ollama pull llama3.2
+   ollama pull qwen2.5:32b
+   ```
+3. Start the dashboard - it works out of the box!
+
+#### Upgrading to Best Value/Premium
+
+1. Open the dashboard Settings page
+2. Select your preferred tier
+3. Enter your API key when prompted:
+   - **OpenRouter**: Get key at [openrouter.ai/keys](https://openrouter.ai/keys)
+   - **Anthropic**: Get key at [console.anthropic.com](https://console.anthropic.com)
+4. Click "Switch" - changes apply instantly!
+
+#### Data API (Required)
+
+You'll need [Alpha Vantage API](https://www.alphavantage.co/support/#api-key) for fundamental and news data:
+- Get a FREE key [here](https://www.alphavantage.co/support/#api-key)
+- TradingAgents requests have increased rate limits (60/min, no daily limit)
+
+**Note:** If you prefer to use OpenAI for data sources, modify settings in `tradingagents/default_config.py`.
 
 ### CLI Usage
 
