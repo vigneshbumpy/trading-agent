@@ -131,9 +131,10 @@ class ConfigManager:
                 config[key] = default_value
 
         # Map model keys (database uses quick_think_model, graph uses quick_think_llm)
-        if 'quick_think_model' in config:
+        # Only map if the _llm key doesn't already have a value from database
+        if 'quick_think_model' in config and 'quick_think_llm' not in self.cache:
             config['quick_think_llm'] = config['quick_think_model']
-        if 'deep_think_model' in config:
+        if 'deep_think_model' in config and 'deep_think_llm' not in self.cache:
             config['deep_think_llm'] = config['deep_think_model']
 
         # When using Ollama, use local vendors for news (openai vendor requires special API)
