@@ -136,6 +136,13 @@ class ConfigManager:
         if 'deep_think_model' in config:
             config['deep_think_llm'] = config['deep_think_model']
 
+        # When using Ollama, use local vendors for news (openai vendor requires special API)
+        if config.get('llm_provider') == 'ollama':
+            if 'data_vendors' not in config:
+                config['data_vendors'] = {}
+            # Override news_data to use local (reddit) since openai vendor requires web_search
+            config['data_vendors']['news_data'] = 'local'
+
         return config
 
     def apply_tier_preset(self, tier_name: str):
