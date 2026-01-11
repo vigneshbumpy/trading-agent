@@ -94,6 +94,13 @@ class GraphSetup:
             # Technical analyst doesn't need tool nodes (uses direct API calls)
             tool_nodes["technical"] = ToolNode([])
 
+        if "sector" in selected_analysts:
+            analyst_nodes["sector"] = create_sector_analyst(
+                self.quick_thinking_llm
+            )
+            delete_nodes["sector"] = create_msg_delete()
+            tool_nodes["sector"] = self.tool_nodes["sector"]
+
         # Create researcher and manager nodes
         bull_researcher_node = create_bull_researcher(
             self.quick_thinking_llm, self.bull_memory

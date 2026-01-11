@@ -1,27 +1,52 @@
+# TradingAgents Requirements
+
+# LangChain & LLM
 typing-extensions
 langchain-openai
 langchain-experimental
-pandas
-yfinance
-praw
-feedparser
-stockstats
-eodhd
+langchain_anthropic
+langchain-google-genai
 langgraph
 chromadb
-setuptools
+
+# Data Analysis
+pandas
+numpy
+yfinance
+stockstats
 backtrader
+
+# Data Sources
+finnhub-python
+eodhd
 akshare
 tushare
-finnhub-python
-parsel
+
+# Web Scraping
 requests
-tqdm
-pytz
+beautifulsoup4
+lxml
+parsel
+
+# Crypto
+python-binance
+
+# News & Social
+praw
+feedparser
+
+# Dashboard
+streamlit>=1.31.0
+plotly>=5.18.0
+
+# Database & Utils
 redis
+cryptography>=41.0.0
+pytz
+tqdm
+setuptools
+
+# CLI
 chainlit
 rich
 questionary
-langchain_anthropic
-langchain-google-genai
-cryptography>=41.0.0

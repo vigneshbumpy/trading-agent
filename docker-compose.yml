@@ -1,0 +1,87 @@
+# TradingAgents Dashboard - Docker Compose Configuration
+# Provides single-user and multi-user deployment options
+
+version: '3.8'
+
+services:
+  # Single-user dashboard (default)
+  dashboard:
+    build: .
+    container_name: tradingagents-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - MODE=single
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - ALPACA_PAPER_API_KEY=${ALPACA_PAPER_API_KEY}
+      - ALPACA_PAPER_SECRET_KEY=${ALPACA_PAPER_SECRET_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    profiles:
+      - single
+
+  # Multi-user platform
+  dashboard-multiuser:
+    build: .
+    container_name: tradingagents-multiuser
+    ports:
+      - "8501:8501"
+    environment:
+      - MODE=multiuser
+      - DATABASE_URL=${DATABASE_URL:-postgresql://tradingagents:tradingagents@postgres:5432/tradingagents}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - ALPACA_PAPER_API_KEY=${ALPACA_PAPER_API_KEY}
+      - ALPACA_PAPER_SECRET_KEY=${ALPACA_PAPER_SECRET_KEY}
+      - ZERODHA_API_KEY=${ZERODHA_API_KEY}
+      - ZERODHA_API_SECRET=${ZERODHA_API_SECRET}
+      - UPSTOX_API_KEY=${UPSTOX_API_KEY}
+      - UPSTOX_API_SECRET=${UPSTOX_API_SECRET}
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+    depends_on:
+      - postgres
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    profiles:
+      - multiuser
+
+  # PostgreSQL database (for multi-user mode)
+  postgres:
+    image: postgres:15-alpine
+    container_name: tradingagents-db
+    environment:
+      - POSTGRES_USER=tradingagents
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-tradingagents}
+      - POSTGRES_DB=tradingagents
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    profiles:
+      - multiuser
+
+  # Redis (optional - for background jobs)
+  redis:
+    image: redis:7-alpine
+    container_name: tradingagents-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    profiles:
+      - multiuser
+      - background-jobs
+
+volumes:
+  postgres_data:
+  redis_data:

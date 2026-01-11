@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Documentation (we copy only what we need)
+*.md
+!README.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Cache
+.cache/
+.pytest_cache/

@@ -34,43 +34,22 @@ def extract_decision(text: str) -> str:
 
 def show():
     """Display stock analysis page"""
-    st.markdown("<h1 class='main-header'>🔍 Stock Analysis</h1>", unsafe_allow_html=True)
-
-    # Analysis Configuration
-    st.markdown("## 📋 Analysis Configuration")
-
     col1, col2 = st.columns(2)
-
     with col1:
-        ticker = st.text_input("Ticker Symbol", value="NVDA", help="Enter stock ticker (e.g., NVDA, AAPL, SPY)").upper()
-
+        ticker = st.text_input("Ticker Symbol", value="NVDA", help="Enter stock ticker").upper()
     with col2:
-        analysis_date = st.date_input(
-            "Analysis Date",
-            value=datetime.now().date(),
-            max_value=datetime.now().date(),
-            help="Date for analysis (cannot be future)"
-        )
-
+        analysis_date = st.date_input("Analysis Date", value=datetime.now().date(), max_value=datetime.now().date())
+    
     col3, col4 = st.columns(2)
-
     with col3:
-        research_depth = st.select_slider(
-            "Research Depth",
-            options=[1, 2, 3, 4, 5],
-            value=1,
-            format_func=lambda x: {1: "Quick", 2: "Basic", 3: "Standard", 4: "Deep", 5: "Comprehensive"}[x],
-            help="Number of debate rounds between agents"
-        )
-
+        research_depth = st.select_slider("Depth", options=[1, 3, 5], value=3, format_func=lambda x: {1: "Quick", 3: "Standard", 5: "Deep"}[x])
     with col4:
-        selected_analysts = st.multiselect(
-            "Select Analysts",
-            options=["market", "social", "news", "fundamentals", "technical"],
-            default=["market", "news", "fundamentals", "technical"],
-            help="Choose which analyst agents to include. Technical = TradingView-style chart analysis"
-        )
-
+        # Default all selected for ease
+        selected_analysts = st.multiselect("Analysts", 
+                                         options=["market", "social", "news", "fundamentals", "technical"],
+                                         default=["market", "news", "fundamentals"],
+                                         label_visibility="collapsed")
+    
     st.markdown("---")
 
     # Show current LLM configuration
@@ -110,30 +89,49 @@ def show():
                 config=config
             )
 
-        # Progress tracking
-        st.markdown("## 🔄 Analysis Progress")
-
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        # Create containers for live updates
-        analyst_container = st.container()
-        research_container = st.container()
-        trading_container = st.container()
-        risk_container = st.container()
-
-        # Run analysis
+        # Run analysis with live streaming
         try:
             analysis_date_str = analysis_date.strftime("%Y-%m-%d")
 
-            with st.spinner(f"Analyzing {ticker} for {analysis_date_str}..."):
-                status_text.text("Running analyst team...")
-                progress_bar.progress(10)
+            # Simple progress display
+            progress_container = st.container()
+            with progress_container:
+                st.markdown("### 🔄 Analysis Progress")
+                progress_placeholder = st.empty()
+                completed_steps = []
 
-                final_state, decision = graph.propagate(ticker, analysis_date_str)
+            # Stream the graph execution
+            init_agent_state = graph.propagator.create_initial_state(ticker, analysis_date_str)
+            args = graph.propagator.get_graph_args()
 
-                progress_bar.progress(100)
-                status_text.text("Analysis complete!")
+            trace = []
+            seen_agents = set()
+            
+            # Use status container for cleaner UI
+            with st.status("🤖 AI Agents Analyzing...", expanded=True) as status:
+                for chunk in graph.graph.stream(init_agent_state, **args):
+                    messages = chunk.get("messages", [])
+                    if messages and len(messages) > 0:
+                        msg = messages[-1]
+                        trace.append(chunk)
+
+                        # Get agent name
+                        agent_name = getattr(msg, 'name', None) or type(msg).__name__
+
+                        if agent_name and agent_name not in seen_agents and agent_name != 'HumanMessage':
+                            seen_agents.add(agent_name)
+                            status.write(f"✅ {agent_name} completed")
+                
+                status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
+
+            # Get final state from last chunk
+            if trace:
+                final_state = trace[-1]
+            else:
+                final_state = graph.graph.invoke(init_agent_state, **args)
+
+            graph.curr_state = final_state
+            decision = graph.process_signal(final_state.get("final_trade_decision", "HOLD"))
 
             st.success("✅ Analysis completed successfully!")
 
@@ -167,70 +165,104 @@ def show():
                 'decision_text': decision
             }
 
-            # Display results
+            # Display Trading Summary
             st.markdown("---")
-            st.markdown("## 📊 Analysis Results")
+            st.markdown("## 📊 Trading Summary")
 
-            # Decision card
-            decision_class = {
-                'BUY': 'buy-signal',
-                'SELL': 'sell-signal',
-                'HOLD': 'hold-signal'
-            }.get(decision_action, 'hold-signal')
+            # Main recommendation card
+            decision_colors = {
+                'BUY': ('#28a745', '#d4edda', '🟢'),
+                'SELL': ('#dc3545', '#f8d7da', '🔴'),
+                'HOLD': ('#ffc107', '#fff3cd', '🟡')
+            }
+            color, bg_color, emoji = decision_colors.get(decision_action, ('#6c757d', '#e9ecef', '⚪'))
 
-            st.markdown(
-                f"<div class='{decision_class}'><h2>RECOMMENDATION: {decision_action}</h2></div>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"""
+            <div style="background-color: {bg_color}; padding: 20px; border-radius: 10px; border-left: 5px solid {color}; margin-bottom: 20px;">
+                <h1 style="color: {color}; margin: 0;">{emoji} {decision_action}</h1>
+                <p style="color: #333; font-size: 1.1em; margin-top: 10px;">{ticker} - {analysis_date_str}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Analyst Reports
-            with st.expander("📈 Analyst Team Reports", expanded=True):
-                tabs = st.tabs(["Market", "Sentiment", "News", "Fundamentals", "Technical"])
+            # Key Metrics Row
+            col1, col2, col3, col4 = st.columns(4)
+
+            # Extract time horizon and confidence from decision text
+            decision_lower = decision.lower()
+            time_horizon = "Short Term" if "short" in decision_lower else "Long Term" if "long" in decision_lower else "Medium Term"
+            risk_level = "High" if "high risk" in decision_lower or "volatile" in decision_lower else "Medium" if "moderate" in decision_lower else "Low"
+
+            with col1:
+                st.metric("Action", decision_action)
+            with col2:
+                st.metric("Time Horizon", time_horizon)
+            with col3:
+                st.metric("Risk Level", risk_level)
+            with col4:
+                confidence = "High" if "strong" in decision_lower or "confident" in decision_lower else "Medium"
+                st.metric("Confidence", confidence)
+
+            st.markdown("---")
+
+            # Trading Decision Summary
+            st.markdown("### 🎯 Final Decision")
+            if final_state.get('final_trade_decision'):
+                st.markdown(final_state['final_trade_decision'])
+            else:
+                st.markdown(decision)
+
+            # Key Insights in columns
+            st.markdown("---")
+            st.markdown("### 📈 Key Insights")
+
+            insight_col1, insight_col2 = st.columns(2)
+
+            with insight_col1:
+                st.markdown("**Market Analysis**")
+                if final_state.get('market_report'):
+                    # Extract first 300 chars as summary
+                    market_summary = final_state['market_report'][:500] + "..." if len(final_state.get('market_report', '')) > 500 else final_state.get('market_report', 'N/A')
+                    st.markdown(market_summary)
+                else:
+                    st.info("Not analyzed")
+
+                st.markdown("**News Sentiment**")
+                if final_state.get('news_report'):
+                    news_summary = final_state['news_report'][:500] + "..." if len(final_state.get('news_report', '')) > 500 else final_state.get('news_report', 'N/A')
+                    st.markdown(news_summary)
+                else:
+                    st.info("Not analyzed")
+
+            with insight_col2:
+                st.markdown("**Fundamentals**")
+                if final_state.get('fundamentals_report'):
+                    fund_summary = final_state['fundamentals_report'][:500] + "..." if len(final_state.get('fundamentals_report', '')) > 500 else final_state.get('fundamentals_report', 'N/A')
+                    st.markdown(fund_summary)
+                else:
+                    st.info("Not analyzed")
+
+                st.markdown("**Technical Analysis**")
+                if final_state.get('technical_report'):
+                    tech_summary = final_state['technical_report'][:500] + "..." if len(final_state.get('technical_report', '')) > 500 else final_state.get('technical_report', 'N/A')
+                    st.markdown(tech_summary)
+                else:
+                    st.info("Not analyzed")
+
+            # Detailed Reports (collapsed by default)
+            st.markdown("---")
+            with st.expander("📋 View Full Reports", expanded=False):
+                tabs = st.tabs(["Market", "News", "Fundamentals", "Technical", "Investment Plan"])
 
                 with tabs[0]:
-                    if final_state.get('market_report'):
-                        st.markdown(final_state['market_report'])
-                    else:
-                        st.info("Market analysis not included")
-
+                    st.markdown(final_state.get('market_report', 'Not available'))
                 with tabs[1]:
-                    if final_state.get('sentiment_report'):
-                        st.markdown(final_state['sentiment_report'])
-                    else:
-                        st.info("Sentiment analysis not included")
-
+                    st.markdown(final_state.get('news_report', 'Not available'))
                 with tabs[2]:
-                    if final_state.get('news_report'):
-                        st.markdown(final_state['news_report'])
-                    else:
-                        st.info("News analysis not included")
-
+                    st.markdown(final_state.get('fundamentals_report', 'Not available'))
                 with tabs[3]:
-                    if final_state.get('fundamentals_report'):
-                        st.markdown(final_state['fundamentals_report'])
-                    else:
-                        st.info("Fundamentals analysis not included")
-
+                    st.markdown(final_state.get('technical_report', 'Not available'))
                 with tabs[4]:
-                    if final_state.get('technical_report'):
-                        st.markdown("### 📊 TradingView-Style Technical Analysis")
-                        st.markdown(final_state['technical_report'])
-                    else:
-                        st.info("Technical analysis not included")
-
-            # Research Team
-            with st.expander("🎯 Research Team Decision"):
-                if final_state.get('investment_plan'):
-                    st.markdown(final_state['investment_plan'])
-                else:
-                    st.info("Research decision not available")
-
-            # Trading Team
-            with st.expander("💼 Trading Team Plan"):
-                if final_state.get('trader_investment_plan'):
-                    st.markdown(final_state['trader_investment_plan'])
-                else:
-                    st.info("Trading plan not available")
+                    st.markdown(final_state.get('investment_plan', 'Not available'))
 
             # Risk Management
             with st.expander("⚠️ Risk Management Decision"):

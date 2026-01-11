@@ -42,7 +42,12 @@ Volatility Indicators:
 Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
-- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."""
+- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi).
+- **Multi-timeframe Analysis**: Analyze trends across Daily (D), 4-Hour (4H), and 1-Hour (1H) timeframes if possible to confirm global trends vs local entry points.
+- Briefly explain why indicators are suitable for the given market context.
+- When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail.
+- Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names.
+- Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."""
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
         )
 
@@ -70,7 +75,39 @@ Volume-Based Indicators:
 
         chain = prompt | llm.bind_tools(tools)
 
-        result = chain.invoke(state["messages"])
+        # Implementation of LLM Request Caching
+        from tradingagents.services.llm_cache import llm_cache
+        from langchain_core.messages import messages_to_dict, messages_from_dict
+        import json
+
+        # specific_key = f"{ticker}_{current_date}_market_analyst"
+        # We use the messages as a unique signature for the request state
+        cache_context = {
+            "messages": [str(m) for m in state["messages"]],
+            "ticker": ticker,
+            "date": str(current_date),
+            "analyst": "market"
+        }
+        cache_key = json.dumps(cache_context, sort_keys=True)
+        
+        cached_response = llm_cache.get(cache_key, "market_analyst")
+        
+        if cached_response:
+            try:
+                # Deserialize the cached AIMessage
+                result = messages_from_dict([json.loads(cached_response)])[0]
+                # print(f"DEBUG: Cache Hit for Market Analyst {ticker}")
+            except Exception as e:
+                # Fallback if cache is corrupted
+                result = chain.invoke(state["messages"])
+        else:
+            result = chain.invoke(state["messages"])
+            try:
+                # Cache the result
+                serialized = messages_to_dict([result])[0]
+                llm_cache.set(cache_key, "market_analyst", json.dumps(serialized))
+            except Exception as e:
+                pass # Non-critical failure
 
         report = ""
 

@@ -1,0 +1,12 @@
+# TradingAgents Dashboard Requirements
+# These are now included in main requirements.txt
+# Keeping this file for reference only
+
+# Core dependencies are in root requirements.txt:
+# - streamlit>=1.31.0
+# - plotly>=5.18.0
+# - pandas
+# - numpy
+# - alpaca-py>=0.12.0
+# - python-dotenv
+# - tradingview-ta>=3.3.0

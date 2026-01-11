@@ -13,7 +13,8 @@ from .alpha_vantage import (
     get_cashflow as get_alpha_vantage_cashflow,
     get_income_statement as get_alpha_vantage_income_statement,
     get_insider_transactions as get_alpha_vantage_insider_transactions,
-    get_news as get_alpha_vantage_news
+    get_news as get_alpha_vantage_news,
+    get_global_news as get_alpha_vantage_global_news
 )
 from .alpha_vantage_common import AlphaVantageRateLimitError
 
@@ -62,37 +63,39 @@ VENDOR_LIST = [
 ]
 
 # Mapping of methods to their vendor-specific implementations
+# NOTE: Order matters! First vendor is tried first. yfinance prioritized (no rate limits)
 VENDOR_METHODS = {
-    # core_stock_apis
+    # core_stock_apis - yfinance first (no rate limit)
     "get_stock_data": {
-        "alpha_vantage": get_alpha_vantage_stock,
         "yfinance": get_YFin_data_online,
+        "alpha_vantage": get_alpha_vantage_stock,
         "local": get_YFin_data,
     },
-    # technical_indicators
+    # technical_indicators - yfinance first (no rate limit)
     "get_indicators": {
-        "alpha_vantage": get_alpha_vantage_indicator,
         "yfinance": get_stock_stats_indicators_window,
+        "alpha_vantage": get_alpha_vantage_indicator,
         "local": get_stock_stats_indicators_window
     },
-    # fundamental_data
+    # fundamental_data - prioritize yfinance (no rate limits) over alpha_vantage
     "get_fundamentals": {
+        "yfinance": get_yfinance_balance_sheet,  # yfinance first (no rate limit)
         "alpha_vantage": get_alpha_vantage_fundamentals,
         "openai": get_fundamentals_openai,
     },
     "get_balance_sheet": {
+        "yfinance": get_yfinance_balance_sheet,  # yfinance first (no rate limit)
         "alpha_vantage": get_alpha_vantage_balance_sheet,
-        "yfinance": get_yfinance_balance_sheet,
         "local": get_simfin_balance_sheet,
     },
     "get_cashflow": {
+        "yfinance": get_yfinance_cashflow,  # yfinance first (no rate limit)
         "alpha_vantage": get_alpha_vantage_cashflow,
-        "yfinance": get_yfinance_cashflow,
         "local": get_simfin_cashflow,
     },
     "get_income_statement": {
+        "yfinance": get_yfinance_income_statement,  # yfinance first (no rate limit)
         "alpha_vantage": get_alpha_vantage_income_statement,
-        "yfinance": get_yfinance_income_statement,
         "local": get_simfin_income_statements,
     },
     # news_data
@@ -100,9 +103,10 @@ VENDOR_METHODS = {
         "alpha_vantage": get_alpha_vantage_news,
         "openai": get_stock_news_openai,
         "google": get_google_news,
-        "local": [get_finnhub_news, get_reddit_company_news, get_google_news],
+        "local": [get_finnhub_news, get_reddit_company_news],
     },
     "get_global_news": {
+        "alpha_vantage": get_alpha_vantage_global_news,
         "openai": get_global_news_openai,
         "local": get_reddit_global_news
     },
@@ -232,7 +236,8 @@ def route_to_vendor(method: str, *args, **kwargs):
     # Final result summary
     if not results:
         print(f"FAILURE: All {vendor_attempt_count} vendor attempts failed for method '{method}'")
-        raise RuntimeError(f"All vendor implementations failed for method '{method}'")
+        # Return empty string instead of raising exception for graceful handling
+        return f"[Data not available for {method}]"
     else:
         print(f"FINAL: Method '{method}' completed with {len(results)} result(s) from {vendor_attempt_count} vendor attempt(s)")
 

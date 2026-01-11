@@ -1,0 +1,61 @@
+# Stock Scanner Configuration
+# All thresholds are configurable
+
+screening:
+  pe_ratio_max: 15.0
+  pb_ratio_max: 1.5
+  debt_equity_max: 0.5
+  current_ratio_min: 1.5
+  roe_min: 0.10
+  market_cap_min: 500000000  # $500M
+
+news:
+  sources:
+    - yahoo_rss
+    - google_rss
+    - finnhub
+    - reddit
+    - sec_edgar
+  positive_keywords:
+    - "earnings beat"
+    - "upgrade"
+    - "acquisition"
+    - "FDA approved"
+    - "revenue growth"
+    - "new contract"
+    - "buyback"
+    - "dividend increase"
+    - "beat estimates"
+    - "raised guidance"
+  negative_keywords:
+    - "lawsuit"
+    - "downgrade"
+    - "bankruptcy"
+    - "SEC investigation"
+    - "fraud"
+    - "layoffs"
+    - "missed estimates"
+    - "profit warning"
+  news_lookback_hours: 72
+
+analysis:
+  ollama_model: "llama3.2"
+  ollama_base_url: "http://localhost:11434/v1"
+  parallel_instances: 4
+  max_stocks_to_analyze: 20
+  analysis_timeout_seconds: 120
+
+alerts:
+  dashboard: true
+  email_enabled: false
+  email_smtp_server: "smtp.gmail.com"
+  email_smtp_port: 587
+  email_sender: ""
+  email_recipients: []
+  desktop_enabled: true
+
+watchlist:
+  source: "sp500"  # Options: sp500, nasdaq100, custom
+  custom_symbols: []
+
+polling_interval_minutes: 15

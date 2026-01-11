@@ -112,6 +112,11 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Verify your installation:
+```bash
+python verify_setup.py
+```
+
 ### Configuration System
 
 TradingAgents features a **production-ready configuration system** with three LLM tiers:

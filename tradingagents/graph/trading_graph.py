@@ -179,6 +179,12 @@ class TradingAgentsGraph:
                     get_income_statement,
                 ]
             ),
+            "sector": ToolNode(
+                [
+                    get_stock_data,
+                    get_news
+                ]
+            ),
         }
 
     def propagate(self, company_name, trade_date):

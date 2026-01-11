@@ -154,6 +154,101 @@ def show():
 
     st.markdown("---")
 
+    # Broker Configuration
+    st.markdown("## 💼 Broker Configuration")
+    st.markdown("Configure brokers for Indian, US, and Crypto markets")
+
+    broker_tabs = st.tabs(["🇮🇳 Indian Markets", "🇺🇸 US Markets", "₿ Crypto Markets"])
+
+    with broker_tabs[0]:
+        st.markdown("### Indian Stock Brokers")
+        st.info("Configure Zerodha or Upstox for NSE/BSE trading")
+        
+        indian_broker = st.selectbox(
+            "Select Indian Broker",
+            ["Zerodha", "Upstox", "None"],
+            key="indian_broker"
+        )
+        
+        if indian_broker != "None":
+            api_key = st.text_input(f"{indian_broker} API Key", type="password", key="indian_api_key")
+            api_secret = st.text_input(f"{indian_broker} API Secret", type="password", key="indian_api_secret")
+            
+            if st.button(f"Save {indian_broker} Credentials", key="save_indian"):
+                # Save to secrets
+                config_manager.secrets_manager.save_secret(
+                    f"{indian_broker.upper()}_API_KEY",
+                    api_key,
+                    "broker"
+                )
+                config_manager.secrets_manager.save_secret(
+                    f"{indian_broker.upper()}_API_SECRET",
+                    api_secret,
+                    "broker"
+                )
+                st.success(f"✅ {indian_broker} credentials saved!")
+
+    with broker_tabs[1]:
+        st.markdown("### US Stock Brokers")
+        st.info("Configure Alpaca for NYSE/NASDAQ trading")
+        
+        us_broker = st.selectbox(
+            "Select US Broker",
+            ["Alpaca", "None"],
+            key="us_broker"
+        )
+        
+        if us_broker == "Alpaca":
+            alpaca_key = st.text_input("Alpaca API Key", type="password", key="alpaca_key")
+            alpaca_secret = st.text_input("Alpaca API Secret", type="password", key="alpaca_secret")
+            paper_trading = st.checkbox("Use Paper Trading (Recommended)", value=True, key="alpaca_paper")
+            
+            if st.button("Save Alpaca Credentials", key="save_alpaca"):
+                config_manager.secrets_manager.save_secret("ALPACA_API_KEY", alpaca_key, "broker")
+                config_manager.secrets_manager.save_secret("ALPACA_API_SECRET", alpaca_secret, "broker")
+                db.save_setting("alpaca_paper_trading", str(paper_trading))
+                st.success("✅ Alpaca credentials saved!")
+
+    with broker_tabs[2]:
+        st.markdown("### Crypto Brokers")
+        st.info("Configure Binance or Coinbase for cryptocurrency trading")
+        
+        crypto_broker = st.selectbox(
+            "Select Crypto Broker",
+            ["Binance", "Coinbase", "None"],
+            key="crypto_broker"
+        )
+        
+        if crypto_broker == "Binance":
+            st.markdown("#### Binance Configuration")
+            binance_key = st.text_input("Binance API Key", type="password", key="binance_key")
+            binance_secret = st.text_input("Binance API Secret", type="password", key="binance_secret")
+            binance_testnet = st.checkbox("Use Testnet (Paper Trading - Recommended)", value=True, key="binance_testnet")
+            
+            st.info("🔗 Get Binance API keys at [binance.com/en/my/settings/api-management](https://www.binance.com/en/my/settings/api-management)")
+            
+            if st.button("Save Binance Credentials", key="save_binance"):
+                config_manager.secrets_manager.save_secret("BINANCE_API_KEY", binance_key, "broker")
+                config_manager.secrets_manager.save_secret("BINANCE_API_SECRET", binance_secret, "broker")
+                db.save_setting("binance_testnet", str(binance_testnet))
+                st.success("✅ Binance credentials saved!")
+        
+        elif crypto_broker == "Coinbase":
+            st.markdown("#### Coinbase Configuration")
+            coinbase_key = st.text_input("Coinbase API Key", type="password", key="coinbase_key")
+            coinbase_secret = st.text_input("Coinbase API Secret", type="password", key="coinbase_secret")
+            coinbase_sandbox = st.checkbox("Use Sandbox (Paper Trading - Recommended)", value=True, key="coinbase_sandbox")
+            
+            st.info("🔗 Get Coinbase API keys at [coinbase.com/advanced-trade](https://www.coinbase.com/advanced-trade)")
+            
+            if st.button("Save Coinbase Credentials", key="save_coinbase"):
+                config_manager.secrets_manager.save_secret("COINBASE_API_KEY", coinbase_key, "broker")
+                config_manager.secrets_manager.save_secret("COINBASE_API_SECRET", coinbase_secret, "broker")
+                db.save_setting("coinbase_sandbox", str(coinbase_sandbox))
+                st.success("✅ Coinbase credentials saved!")
+
+    st.markdown("---")
+
     # Advanced Settings
     with st.expander("⚙️ Advanced Settings", expanded=False):
         st.markdown("### Research Configuration")

@@ -137,14 +137,20 @@ class ConfigManager:
         if 'deep_think_model' in config and 'deep_think_llm' not in self.cache:
             config['deep_think_llm'] = config['deep_think_model']
 
-        # When using Ollama, use local vendors for news (openai vendor requires special API)
-        # For openrouter/anthropic, use alpha_vantage which works properly
-        provider = config.get('llm_provider', 'ollama')
+        # Data vendor configuration
+        # Prioritize yfinance (no rate limits) over alpha_vantage (25 req/day free limit)
         if 'data_vendors' not in config:
             config['data_vendors'] = {}
 
+        # Always use yfinance for core data (no rate limits)
+        config['data_vendors']['core_stock_apis'] = 'yfinance'
+        config['data_vendors']['technical_indicators'] = 'yfinance'
+        config['data_vendors']['fundamental_data'] = 'yfinance'  # Critical: avoid alpha_vantage rate limits
+
+        # News vendor depends on LLM provider
+        provider = config.get('llm_provider', 'ollama')
         if provider == 'ollama':
-            # Override news_data to use local (reddit) since openai vendor requires web_search
+            # Use local (reddit) since openai vendor requires web_search
             config['data_vendors']['news_data'] = 'local'
         else:
             # Use alpha_vantage for news with cloud providers

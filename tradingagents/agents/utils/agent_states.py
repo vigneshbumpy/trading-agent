@@ -61,6 +61,7 @@ class AgentState(MessagesState):
     ]
     fundamentals_report: Annotated[str, "Report from the Fundamentals Researcher"]
     technical_report: Annotated[str, "Report from the Technical Analyst (TradingView-style chart analysis)"]
+    sector_report: Annotated[str, "Report from the Sector Rotation Analyst"]
 
     # researcher team discussion step
     investment_debate_state: Annotated[

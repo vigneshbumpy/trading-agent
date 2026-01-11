@@ -114,6 +114,68 @@ class TradingDatabase:
             )
         """)
 
+        # Automation runs table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS automation_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_date TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                status TEXT DEFAULT 'running',
+                symbols_analyzed INTEGER DEFAULT 0,
+                trades_executed INTEGER DEFAULT 0,
+                errors_count INTEGER DEFAULT 0,
+                config_json TEXT,
+                notes TEXT
+            )
+        """)
+
+        # Execution logs table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS execution_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                normalized_symbol TEXT,
+                action TEXT NOT NULL,
+                quantity REAL,
+                price REAL,
+                order_type TEXT,
+                market TEXT,
+                broker TEXT,
+                order_id TEXT,
+                status TEXT,
+                execution_time REAL,
+                error_message TEXT,
+                risk_check_passed INTEGER DEFAULT 1,
+                paper_trading INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+        
+        # Add paper_trading column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE execution_logs ADD COLUMN paper_trading INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        # Market config table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS market_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                market TEXT UNIQUE NOT NULL,
+                broker_type TEXT,
+                enabled INTEGER DEFAULT 1,
+                max_position_size REAL DEFAULT 0.1,
+                max_daily_trades INTEGER DEFAULT 10,
+                max_daily_loss REAL DEFAULT 0.05,
+                position_sizing_method TEXT DEFAULT 'percentage',
+                position_sizing_config TEXT,
+                risk_limits_config TEXT,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
         # LLM Presets table (tier configurations)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_presets (
@@ -439,3 +501,216 @@ class TradingDatabase:
         conn.close()
 
         return row[0] if row else default
+
+    # Automation operations
+    def save_automation_run(self, run_data: Dict) -> int:
+        """Save automation run"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        import json
+        config_json = json.dumps(run_data.get('config', {}))
+
+        cursor.execute("""
+            INSERT INTO automation_runs (
+                run_date, started_at, status, symbols_analyzed,
+                trades_executed, errors_count, config_json, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            run_data.get('run_date', datetime.now().date().isoformat()),
+            run_data.get('started_at', datetime.now().isoformat()),
+            run_data.get('status', 'running'),
+            run_data.get('symbols_analyzed', 0),
+            run_data.get('trades_executed', 0),
+            run_data.get('errors_count', 0),
+            config_json,
+            run_data.get('notes')
+        ))
+
+        run_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return run_id
+
+    def update_automation_run(self, run_id: int, **kwargs):
+        """Update automation run"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        updates = []
+        values = []
+
+        for key, value in kwargs.items():
+            if key == 'config':
+                import json
+                updates.append("config_json = ?")
+                values.append(json.dumps(value))
+            else:
+                updates.append(f"{key} = ?")
+                values.append(value)
+
+        if updates:
+            values.append(run_id)
+            cursor.execute(f"""
+                UPDATE automation_runs
+                SET {', '.join(updates)}
+                WHERE id = ?
+            """, values)
+
+        conn.commit()
+        conn.close()
+
+    def get_automation_runs(self, limit: int = 50) -> List[Dict]:
+        """Get automation runs"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT * FROM automation_runs
+            ORDER BY started_at DESC
+            LIMIT ?
+        """, (limit,))
+
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        conn.close()
+
+        return [dict(zip(columns, row)) for row in rows]
+
+    # Execution log operations
+    def save_execution_log(self, log_data: Dict) -> int:
+        """Save execution log"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO execution_logs (
+                timestamp, symbol, normalized_symbol, action, quantity, price,
+                order_type, market, broker, order_id, status, execution_time,
+                error_message, risk_check_passed, paper_trading, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            log_data.get('timestamp', datetime.now().isoformat()),
+            log_data.get('symbol'),
+            log_data.get('normalized_symbol'),
+            log_data.get('action'),
+            log_data.get('quantity'),
+            log_data.get('price'),
+            log_data.get('order_type'),
+            log_data.get('market'),
+            log_data.get('broker'),
+            log_data.get('order_id'),
+            log_data.get('status'),
+            log_data.get('execution_time'),
+            log_data.get('error_message'),
+            1 if log_data.get('risk_check_passed', True) else 0,
+            1 if log_data.get('paper_trading', True) else 0,
+            datetime.now().isoformat()
+        ))
+
+        log_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return log_id
+
+    def get_execution_logs(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
+        """Get execution logs"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        if symbol:
+            cursor.execute("""
+                SELECT * FROM execution_logs
+                WHERE symbol = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (symbol, limit))
+        else:
+            cursor.execute("""
+                SELECT * FROM execution_logs
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,))
+
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        conn.close()
+
+        return [dict(zip(columns, row)) for row in rows]
+
+    # Market config operations
+    def save_market_config(self, market: str, config_data: Dict):
+        """Save market configuration"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        import json
+        position_config = json.dumps(config_data.get('position_sizing_config', {}))
+        risk_config = json.dumps(config_data.get('risk_limits_config', {}))
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO market_config (
+                market, broker_type, enabled, max_position_size, max_daily_trades,
+                max_daily_loss, position_sizing_method, position_sizing_config,
+                risk_limits_config, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            market,
+            config_data.get('broker_type'),
+            1 if config_data.get('enabled', True) else 0,
+            config_data.get('max_position_size', 0.1),
+            config_data.get('max_daily_trades', 10),
+            config_data.get('max_daily_loss', 0.05),
+            config_data.get('position_sizing_method', 'percentage'),
+            position_config,
+            risk_config,
+            datetime.now().isoformat()
+        ))
+
+        conn.commit()
+        conn.close()
+
+    def get_market_config(self, market: str) -> Optional[Dict]:
+        """Get market configuration"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM market_config WHERE market = ?", (market,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            columns = [desc[0] for desc in cursor.description]
+            config = dict(zip(columns, row))
+
+            # Parse JSON fields
+            import json
+            if config.get('position_sizing_config'):
+                config['position_sizing_config'] = json.loads(config['position_sizing_config'])
+            if config.get('risk_limits_config'):
+                config['risk_limits_config'] = json.loads(config['risk_limits_config'])
+
+            return config
+        return None
+
+    def get_all_market_configs(self) -> List[Dict]:
+        """Get all market configurations"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM market_config")
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        conn.close()
+
+        configs = []
+        import json
+        for row in rows:
+            config = dict(zip(columns, row))
+            if config.get('position_sizing_config'):
+                config['position_sizing_config'] = json.loads(config['position_sizing_config'])
+            if config.get('risk_limits_config'):
+                config['risk_limits_config'] = json.loads(config['risk_limits_config'])
+            configs.append(config)
+
+        return configs

@@ -102,6 +102,8 @@ st.sidebar.markdown("### Navigation")
 nav_options = [
     "🏠 Dashboard",
     "🔍 Stock Analysis",
+    "🚀 Stock Scanner",
+    "🤖 Automation",
     "💼 Portfolio",
     "📊 Trade History",
     "⚙️ Settings",
@@ -145,6 +147,12 @@ if page == "🏠 Dashboard":
 elif page == "🔍 Stock Analysis":
     from views import analysis
     analysis.show()
+elif page == "🚀 Stock Scanner":
+    from views import scanner
+    scanner.show()
+elif page == "🤖 Automation":
+    from views import automation
+    automation.show()
 elif page == "💼 Portfolio":
     from views import portfolio
     portfolio.show()

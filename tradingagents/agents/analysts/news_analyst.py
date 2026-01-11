@@ -43,8 +43,35 @@ def create_news_analyst(llm):
         prompt = prompt.partial(ticker=ticker)
 
         chain = prompt | llm.bind_tools(tools)
-        result = chain.invoke(state["messages"])
+        
+        # Implementation of LLM Request Caching
+        from tradingagents.services.llm_cache import llm_cache
+        from langchain_core.messages import messages_to_dict, messages_from_dict
+        import json
 
+        cache_context = {
+            "messages": [str(m) for m in state["messages"]],
+            "ticker": ticker,
+            "date": str(current_date),
+            "analyst": "news"
+        }
+        cache_key = json.dumps(cache_context, sort_keys=True)
+        
+        cached_response = llm_cache.get(cache_key, "news_analyst")
+        
+        if cached_response:
+            try:
+                result = messages_from_dict([json.loads(cached_response)])[0]
+            except Exception:
+                result = chain.invoke(state["messages"])
+        else:
+            result = chain.invoke(state["messages"])
+            try:
+                serialized = messages_to_dict([result])[0]
+                llm_cache.set(cache_key, "news_analyst", json.dumps(serialized))
+            except Exception:
+                pass
+        
         report = ""
 
         if len(result.tool_calls) == 0:
